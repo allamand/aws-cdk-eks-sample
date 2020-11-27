@@ -26,7 +26,7 @@ export class MyStack extends Stack {
     super(scope, id, props);
 
     // force use_default_vpc=1
-    this.node.setContext('use_default_vpc', '1');
+    // this.node.setContext('use_default_vpc', '1');
 
     new EksCluster(this, 'EksCluster', {
       vpc: getOrCreateVpc(this),
