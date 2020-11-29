@@ -4,6 +4,7 @@ const project = new AwsCdkTypeScriptApp({
   cdkVersion: "1.73.0",
   name: "aws-cdk-eks-sample",
   cdkDependencies: [
+    '@aws-cdk/aws-autoscaling',
     '@aws-cdk/aws-ec2',
     '@aws-cdk/aws-eks',
   ],
