@@ -1,7 +1,7 @@
-import { App, Construct, Stack, StackProps, Fn } from '@aws-cdk/core';
-import * as eks from '@aws-cdk/aws-eks';
-import * as ec2 from '@aws-cdk/aws-ec2';
 import * as autoscaling from '@aws-cdk/aws-autoscaling';
+import * as ec2 from '@aws-cdk/aws-ec2';
+import * as eks from '@aws-cdk/aws-eks';
+import { App, Construct, Stack, StackProps, Fn } from '@aws-cdk/core';
 
 export interface EksClusterProps {
   readonly vpc?: ec2.IVpc;
@@ -9,11 +9,12 @@ export interface EksClusterProps {
 
 export class EksCluster extends Construct {
   constructor(scope: Construct, id: string, props: EksClusterProps = {}) {
-    super(scope ,id);
+    super(scope, id);
 
     const vpc = props.vpc ?? new ec2.Vpc(this, 'Vpc', { natGateways: 1 });
     const spotOnly = this.node.tryGetContext('spot_only') == 1 ? true : false;
     const instanceType = this.node.tryGetContext('instance_type') || 'm5.large';
+    const defaultCapacity: number = this.node.tryGetContext('default_capacity') || 2;
     const version = eks.KubernetesVersion.V1_18;
     const stack = Stack.of(this);
 
@@ -25,6 +26,7 @@ export class EksCluster extends Construct {
       });
       const asg = cluster.addAutoScalingGroupCapacity('SpotASG', {
         instanceType: new ec2.InstanceType(instanceType),
+        minCapacity: defaultCapacity,
       });
       // prepare a launch template with spot options
       const lt = new ec2.CfnLaunchTemplate(this, 'LaunchTemplate', {
@@ -53,7 +55,8 @@ export class EksCluster extends Construct {
         vpc,
         version,
         defaultCapacityInstance: new ec2.InstanceType(instanceType),
-      })
+        defaultCapacity,
+      });
     }
 
   }
@@ -81,7 +84,7 @@ const devEnv = {
 
 const app = new App();
 
-const stackName = app.node.tryGetContext('stackName') || 'cdk-eks-demo-stack'
+const stackName = app.node.tryGetContext('stackName') || 'cdk-eks-demo-stack';
 
 new MyStack(app, stackName, { env: devEnv });
 
@@ -95,3 +98,4 @@ function getOrCreateVpc(scope: Construct): ec2.IVpc {
       ec2.Vpc.fromLookup(scope, 'Vpc', { vpcId: scope.node.tryGetContext('use_vpc_id') }) :
       new ec2.Vpc(scope, 'Vpc', { maxAzs: 3, natGateways: 1 });
 }
+
