@@ -40,8 +40,7 @@ npx cdk deploy -c default_capacity=3
 
 ## Advanced Usage
 
-This will create `1` x `t3.large` spot instance in the `default vpc` for the Amazon EKS cluster.
-
+This will create `1` x `t3.large` spot instance in the `default vpc` for the Amazon EKS
 ```sh
 npx deploy \
 -c use_default_vpc=1 \
