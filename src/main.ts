@@ -1,6 +1,7 @@
 import * as autoscaling from '@aws-cdk/aws-autoscaling';
 import * as ec2 from '@aws-cdk/aws-ec2';
 import * as eks from '@aws-cdk/aws-eks';
+import * as iam from '@aws-cdk/aws-iam';
 import { App, Construct, Stack, StackProps, Fn } from '@aws-cdk/core';
 
 export interface EksClusterProps {
@@ -27,12 +28,23 @@ export class EksCluster extends Construct {
       const asg = cluster.addAutoScalingGroupCapacity('SpotASG', {
         instanceType: new ec2.InstanceType(instanceType),
         minCapacity: defaultCapacity,
+        // placeholder for the launch configuration creation
+        spotPrice: '0.1094',
+        updatePolicy: autoscaling.UpdatePolicy.rollingUpdate(),
       });
+      // create the connection
+      this._connectAutoScalingGroup(cluster, asg);
+      const cfnInstnceProfile = asg.node.tryFindChild('InstanceProfile') as iam.CfnInstanceProfile;
       // prepare a launch template with spot options
       const lt = new ec2.CfnLaunchTemplate(this, 'LaunchTemplate', {
         launchTemplateData: {
-          imageId: new eks.EksOptimizedImage().getImage(stack).imageId,
+          imageId: new eks.EksOptimizedImage({
+            kubernetesVersion: version.version,
+          }).getImage(stack).imageId,
           instanceType: instanceType.toString(),
+          iamInstanceProfile: {
+            arn: cfnInstnceProfile.attrArn,
+          },
           instanceMarketOptions: {
             marketType: 'spot',
             spotOptions: {
@@ -40,6 +52,7 @@ export class EksCluster extends Construct {
             },
           },
           userData: Fn.base64(asg.userData.render()),
+          securityGroupIds: asg.connections.securityGroups.map(sg => sg.securityGroupId),
         },
       });
       // override the ASG
@@ -58,7 +71,22 @@ export class EksCluster extends Construct {
         defaultCapacity,
       });
     }
+  }
+  private _connectAutoScalingGroup(cluster: ec2.IConnectable, autoScalingGroup: autoscaling.AutoScalingGroup) {
+    // self rules
+    autoScalingGroup.connections.allowInternally(ec2.Port.allTraffic());
 
+    // Cluster to:nodes rules
+    autoScalingGroup.connections.allowFrom(cluster, ec2.Port.tcp(443));
+    autoScalingGroup.connections.allowFrom(cluster, ec2.Port.tcpRange(1025, 65535));
+
+    // Allow HTTPS from Nodes to Cluster
+    autoScalingGroup.connections.allowTo(cluster, ec2.Port.tcp(443));
+
+    // Allow all node outbound traffic
+    autoScalingGroup.connections.allowToAnyIpv4(ec2.Port.allTcp());
+    autoScalingGroup.connections.allowToAnyIpv4(ec2.Port.allUdp());
+    autoScalingGroup.connections.allowToAnyIpv4(ec2.Port.allIcmp());
   }
 }
 
