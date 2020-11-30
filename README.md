@@ -42,7 +42,7 @@ npx cdk deploy -c default_capacity=3
 
 This will create `1` x `t3.large` spot instance in the `default vpc` for the Amazon EKS
 ```sh
-npx deploy \
+npx cdk deploy \
 -c use_default_vpc=1 \
 -c spot_only=1 \
 -c default_capacity=1 \
