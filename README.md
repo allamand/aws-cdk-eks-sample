@@ -21,13 +21,17 @@ create a default eks clsuter in a specific `VpcId`
 npx cdk deploy -c use_vpc_id=vpc-xxxxxx
 ```
 
-create spot-only self-managed autoscaling nodegroup(2 x `m5.large` spot instances)
+## Managed Nodegroup
+
+When you specify `spot_only=1`, you will get a [spot managed nodegroup](https://aws.amazon.com/tw/blogs/containers/amazon-eks-now-supports-provisioning-and-managing-ec2-spot-instances-in-managed-node-groups/) diversified and distributed with predefined instance types : `t3.large`, `c5.large` and `m5.large`.
+
+create **spot-only** managed nodegroup
 ```sh
 npx cdk deploy -c spot_only=1
 ```
 (Node: you don't have to specify `spotPrice`)
 
-specify different `instance type`
+specify different `instance type` for a **on-demand** managed nodegroup.
 ```sh
 npx cdk deploy -c instance_type=t3.large
 ```

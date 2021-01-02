@@ -1,8 +1,15 @@
-import * as autoscaling from '@aws-cdk/aws-autoscaling';
 import * as ec2 from '@aws-cdk/aws-ec2';
 import * as eks from '@aws-cdk/aws-eks';
-import * as iam from '@aws-cdk/aws-iam';
-import { App, Construct, Stack, StackProps, Fn } from '@aws-cdk/core';
+import { App, Construct, Stack, StackProps } from '@aws-cdk/core';
+import { Patch } from 'awscdk-81-patch';
+
+Patch.apply();
+
+const DEFAULT_INSTANCE_TYPES = [
+  new ec2.InstanceType('m5.large'),
+  new ec2.InstanceType('c5.large'),
+  new ec2.InstanceType('t3.large'),
+];
 
 export interface EksClusterProps {
   readonly vpc?: ec2.IVpc;
@@ -13,90 +20,40 @@ export class EksCluster extends Construct {
     super(scope, id);
 
     const vpc = props.vpc ?? new ec2.Vpc(this, 'Vpc', { natGateways: 1 });
-    const spotOnly = this.node.tryGetContext('spot_only') == 1 ? true : false;
-    const instanceType = this.node.tryGetContext('instance_type') || 'm5.large';
+    const spotOnly = this.node.tryGetContext('spot_only') == '1' ? true : false;
+    const instanceTypes = this.node.tryGetContext('instance_type') ?
+      [this.node.tryGetContext('instance_type')] : DEFAULT_INSTANCE_TYPES;
     const defaultCapacity: number = this.node.tryGetContext('default_capacity') || 2;
     const version = eks.KubernetesVersion.V1_18;
-    const stack = Stack.of(this);
+
+    // create cluster only. We'll create MNG later.
+    const cluster = new eks.Cluster(this, 'Cluster', {
+      vpc,
+      version,
+      defaultCapacity: 0,
+    });
 
     if (spotOnly) {
-      const cluster = new eks.Cluster(this, 'Cluster', {
-        vpc,
-        version,
-        defaultCapacity: 0,
+      // create a spot managed nodegroup
+      cluster.addNodegroupCapacity('MNG', {
+        capacityType: eks.CapacityType.SPOT,
+        instanceTypes,
+        desiredSize: defaultCapacity,
       });
-      const asg = cluster.addAutoScalingGroupCapacity('SpotASG', {
-        instanceType: new ec2.InstanceType(instanceType),
-        minCapacity: defaultCapacity,
-        // placeholder for the launch configuration creation
-        spotPrice: '0.1094',
-        updatePolicy: autoscaling.UpdatePolicy.rollingUpdate(),
-      });
-      // create the connection
-      this._connectAutoScalingGroup(cluster, asg);
-      const cfnInstnceProfile = asg.node.tryFindChild('InstanceProfile') as iam.CfnInstanceProfile;
-      // prepare a launch template with spot options
-      const lt = new ec2.CfnLaunchTemplate(this, 'LaunchTemplate', {
-        launchTemplateData: {
-          imageId: new eks.EksOptimizedImage({
-            kubernetesVersion: version.version,
-          }).getImage(stack).imageId,
-          instanceType: instanceType.toString(),
-          iamInstanceProfile: {
-            arn: cfnInstnceProfile.attrArn,
-          },
-          instanceMarketOptions: {
-            marketType: 'spot',
-            spotOptions: {
-              spotInstanceType: 'one-time',
-            },
-          },
-          userData: Fn.base64(asg.userData.render()),
-          securityGroupIds: asg.connections.securityGroups.map(sg => sg.securityGroupId),
-        },
-      });
-      // override the ASG
-      const cfnAsg = asg.node.tryFindChild('ASG') as autoscaling.CfnAutoScalingGroup | undefined;
-      cfnAsg!.addPropertyDeletionOverride('LaunchConfigurationName');
-      cfnAsg!.addPropertyOverride('LaunchTemplate', {
-        LaunchTemplateId: lt.ref,
-        Version: lt.attrLatestVersionNumber,
-      });
-
     } else {
-      new eks.Cluster(this, 'Cluster', {
-        vpc,
-        version,
-        defaultCapacityInstance: new ec2.InstanceType(instanceType),
-        defaultCapacity,
+      // create a on-demand managed nodegroup
+      cluster.addNodegroupCapacity('MNG', {
+        capacityType: eks.CapacityType.ON_DEMAND,
+        instanceTypes,
+        desiredSize: defaultCapacity,
       });
     }
   }
-  private _connectAutoScalingGroup(cluster: ec2.IConnectable, autoScalingGroup: autoscaling.AutoScalingGroup) {
-    // self rules
-    autoScalingGroup.connections.allowInternally(ec2.Port.allTraffic());
-
-    // Cluster to:nodes rules
-    autoScalingGroup.connections.allowFrom(cluster, ec2.Port.tcp(443));
-    autoScalingGroup.connections.allowFrom(cluster, ec2.Port.tcpRange(1025, 65535));
-
-    // Allow HTTPS from Nodes to Cluster
-    autoScalingGroup.connections.allowTo(cluster, ec2.Port.tcp(443));
-
-    // Allow all node outbound traffic
-    autoScalingGroup.connections.allowToAnyIpv4(ec2.Port.allTcp());
-    autoScalingGroup.connections.allowToAnyIpv4(ec2.Port.allUdp());
-    autoScalingGroup.connections.allowToAnyIpv4(ec2.Port.allIcmp());
-  }
 }
-
 
 export class MyStack extends Stack {
   constructor(scope: Construct, id: string, props: StackProps = {}) {
     super(scope, id, props);
-
-    // force use_default_vpc=1
-    // this.node.setContext('use_default_vpc', '1');
 
     new EksCluster(this, 'EksCluster', {
       vpc: getOrCreateVpc(this),
