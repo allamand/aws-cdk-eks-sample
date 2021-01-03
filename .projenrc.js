@@ -3,13 +3,12 @@ const { AwsCdkTypeScriptApp } = require('projen');
 const AUTOMATION_TOKEN = 'PROJEN_GITHUB_TOKEN';
 
 const project = new AwsCdkTypeScriptApp({
-  cdkVersion: '1.81.0',
+  cdkVersion: '1.82.0',
   name: 'aws-cdk-eks-sample',
   cdkDependencies: [
     '@aws-cdk/aws-ec2',
     '@aws-cdk/aws-eks',
   ],
-  deps: ['awscdk-81-patch'],
   dependabot: false,
 });
 
