@@ -3,7 +3,7 @@
 
 A sample CDK application to create a sample Amazon EKS cluster.
 
-# install AWS CLI CLI
+# install AWS CDK CLI
 
 ```sh
 npm i -g aws-cdk
