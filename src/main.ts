@@ -35,14 +35,14 @@ export class EksCluster extends Construct {
       cluster.addNodegroupCapacity('MNG', {
         capacityType: eks.CapacityType.SPOT,
         instanceTypes,
-        desiredSize: defaultCapacity,
+        desiredSize: Number(defaultCapacity),
       });
     } else {
       // create a on-demand managed nodegroup
       cluster.addNodegroupCapacity('MNG', {
         capacityType: eks.CapacityType.ON_DEMAND,
         instanceTypes,
-        desiredSize: defaultCapacity,
+        desiredSize: Number(defaultCapacity),
       });
     }
   }
