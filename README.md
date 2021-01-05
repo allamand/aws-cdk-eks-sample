@@ -3,22 +3,28 @@
 
 A sample CDK application to create a sample Amazon EKS cluster.
 
+# install AWS CLI CLI
+
+```sh
+npm i -g aws-cdk
+```
+
 # sample
 
 create a default eks clsuter in a **new vpc** with 2 x `m5.large` for the managed nodegroup.
 ```sh
-npx cdk deploy
+cdk deploy
 ```
 
 create a default eks clsuter in the **default vpc**
 
 ```sh
-npx cdk deploy -c use_default_vpc=1
+cdk deploy -c use_default_vpc=1
 ```
 
 create a default eks clsuter in a specific `VpcId`
 ```sh
-npx cdk deploy -c use_vpc_id=vpc-xxxxxx
+cdk deploy -c use_vpc_id=vpc-xxxxxx
 ```
 
 ## Managed Nodegroup
@@ -27,18 +33,18 @@ When you specify `spot_only=1`, you will get a [spot managed nodegroup](https://
 
 create **spot-only** managed nodegroup
 ```sh
-npx cdk deploy -c spot_only=1
+cdk deploy -c spot_only=1
 ```
 (Node: you don't have to specify `spotPrice`)
 
 specify different `instance type` for a **on-demand** managed nodegroup.
 ```sh
-npx cdk deploy -c instance_type=t3.large
+cdk deploy -c instance_type=t3.large
 ```
 
 specify different `capacity`
 ```sh
-npx cdk deploy -c default_capacity=3
+cdk deploy -c default_capacity=3
 ```
 (this will create `3` x `m5.large` instances)
 
